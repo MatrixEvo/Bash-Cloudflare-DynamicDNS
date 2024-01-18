@@ -5,6 +5,9 @@
 # Created on 18th January 2024
 # Last Updated on 18th January 2024
 
+# Example Usage - CronJob - Check every minute
+# * * * * * dyndns.sh >dyndns.log 2>&1
+
 # Cloudflare Authentication - API Token with (Zone : DNS : Read) and (Zone : DNS : Edit) permission
 cloudflare_email="email@example.com" # Change This
 cloudflare_api_token="" # Change This
