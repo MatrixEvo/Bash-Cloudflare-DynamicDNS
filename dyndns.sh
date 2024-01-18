@@ -15,13 +15,28 @@ cloudflare_api_token="" # Change This
 # Zone Identifier from Cloudflare Dashboard - Domain
 zone_identifier="" # Change This
 
-# DNS Record Info - DNS Identifier is retrieved automatically
+# DNS Record Info - DNS Record Identifier is retrieved automatically
 record_name="subdomain.example.com" # Change This
 proxy_state="false" # Change This based on your needs
 record_type="A" # Change This based on your needs
 record_ttl="60" # Change This based on your needs
 
 # ===== Nothing to change below =====
+
+check_variable() {
+  local count
+  count=0
+  for var in "${@}"; do
+    if [[ -z "${!var}" ]]; then
+      echo "ERROR - variable \"${var}\" is empty"
+      ((count++))
+    fi
+  done
+  if [[ ${count} -ne 0 ]]; then
+    exit 1
+  fi
+  unset count
+}
 
 check_valid_ipv4() {
     grep -oE "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
@@ -33,7 +48,8 @@ get_dns_record_identifier() {
     --url "https://api.cloudflare.com/client/v4/zones/${zone_identifier}/dns_records" \
     --header 'Content-Type: application/json' \
     --header "X-Auth-Email: ${cloudflare_email}" \
-    --header "Authorization: Bearer ${cloudflare_api_token}" | jq -r --arg record_name "${record_name}" '.result[] | select(.name == $record_name) | .id'
+    --header "Authorization: Bearer ${cloudflare_api_token}" \
+    | jq -r --arg record_name "${record_name}" '.result[] | select(.name == $record_name) | .id'
 }
 
 # Documentation - https://developers.cloudflare.com/api/operations/dns-records-for-a-zone-dns-record-details
@@ -42,7 +58,8 @@ get_record() {
     --url "https://api.cloudflare.com/client/v4/zones/${zone_identifier}/dns_records/${dns_record_identifier}" \
     --header 'Content-Type: application/json' \
     --header "X-Auth-Email: ${cloudflare_email}" \
-    --header "Authorization: Bearer ${cloudflare_api_token}" | jq -r .result.content
+    --header "Authorization: Bearer ${cloudflare_api_token}" \
+    | jq -r .result.content
 }
 
 # Documentation - https://developers.cloudflare.com/api/operations/dns-records-for-a-zone-update-dns-record
@@ -58,26 +75,32 @@ update_record() {
     "proxied": '"${proxy_state}"',
     "type": "'"${record_type}"'",
     "ttl": '"${record_ttl}"'
-  }' | jq
+  }' \
+  | jq
 }
 
-# Auto filled variables - Do not change - Gets Public IP from checkip.amazonaws.com
-dns_record_identifier="$(get_dns_record_identifier)"
-current_ip="$(curl -4s checkip.amazonaws.com | check_valid_ipv4)"
-cloudflare_current_ip="$(get_record)"
+start() {
+  echo "Run at $(date "+%-d-%b-%Y %H:%M")"
 
-echo "Cloudflare IP     - ${cloudflare_current_ip}"
-echo "Current Public IP - ${current_ip}"
+  # Auto filled variables - Do not change - Gets Public IP from multiple sources
+  dns_record_identifier="$(get_dns_record_identifier)"
+  current_ip="$(curl -4s checkip.amazonaws.com || curl -4s api.ipify.org || curl -4s ipv4.icanhazip.com || curl -4s ip.matrixevo.com)"
+  current_ip="$(echo "${current_ip}" | check_valid_ipv4)"
+  cloudflare_current_ip="$(get_record)"
 
-if [[ ! ${cloudflare_current_ip} == "${current_ip}" ]] && [[ -n ${current_ip} ]] && [[ -n ${cloudflare_current_ip} ]]; then
-  echo "Not Match"
-  echo
-  update_record
-  echo
-elif [[ -z ${current_ip} ]] || [[ -z ${cloudflare_current_ip} ]]; then
-  echo "ERROR - variable is empty"
-else
-  echo "OK - No Action Required"
-fi
+  echo "Cloudflare IP     - ${cloudflare_current_ip}"
+  echo "Current Public IP - ${current_ip}"
 
-echo "Run at $(date "+%-d-%b-%Y %H:%M")"
+  check_variable cloudflare_email cloudflare_api_token zone_identifier record_name proxy_state record_type record_ttl dns_record_identifier current_ip cloudflare_current_ip
+
+  if [[ ! ${cloudflare_current_ip} == "${current_ip}" ]]; then
+    echo "Not Match"
+    echo
+    update_record
+    echo
+  else
+    echo "OK - No Action Required"
+  fi
+}
+
+start
