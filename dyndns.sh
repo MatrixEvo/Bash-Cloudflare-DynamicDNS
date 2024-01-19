@@ -85,7 +85,7 @@ start() {
   # Auto filled variables - Do not change - Gets Public IP from multiple sources
   dns_record_identifier="$(get_dns_record_identifier)"
   current_ip="$(curl -4s checkip.amazonaws.com || curl -4s api.ipify.org || curl -4s ipv4.icanhazip.com || curl -4s ip.matrixevo.com)"
-  current_ip="$(echo "${current_ip}" | check_valid_ipv4)"
+  current_ip="$(check_valid_ipv4 <<< "${current_ip}")"
   cloudflare_current_ip="$(get_record)"
 
   echo "Cloudflare IP     - ${cloudflare_current_ip}"
@@ -93,7 +93,7 @@ start() {
 
   check_variable cloudflare_email cloudflare_api_token zone_identifier record_name proxy_state record_type record_ttl dns_record_identifier current_ip cloudflare_current_ip
 
-  if [[ ! ${cloudflare_current_ip} == "${current_ip}" ]]; then
+  if [[ ! "${cloudflare_current_ip}" == "${current_ip}" ]]; then
     echo "Not Match"
     echo
     update_record
