@@ -91,9 +91,11 @@ start() {
   echo "Cloudflare IP     - ${cloudflare_current_ip}"
   echo "Current Public IP - ${current_ip}"
 
-  check_variable cloudflare_email cloudflare_api_token zone_identifier record_name proxy_state record_type record_ttl dns_record_identifier current_ip cloudflare_current_ip
+  check_variable cloudflare_email cloudflare_api_token zone_identifier record_name proxy_state record_type record_ttl
 
-  if [[ ! "${cloudflare_current_ip}" == "${current_ip}" ]]; then
+  if [[ -z ${dns_record_identifier} ]] || [[ -z ${current_ip} ]] || [[ -z ${cloudflare_current_ip} ]]; then
+    echo "Failed to retrieve dns_record_identifier / current_ip / cloudflare_current_ip"
+  elif [[ ! "${cloudflare_current_ip}" == "${current_ip}" ]]; then
     echo "Not Match"
     echo
     update_record
